@@ -1,11 +1,14 @@
 import os
+import os
 import requests
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 app = Flask(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -16,16 +19,15 @@ if not GROQ_API_KEY:
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
     user_message = request.form.get("Body")
-    print(f"📩 User Message: {user_message}")  # Only user messages for debugging
+    print(f"📩 User Message: {user_message}")
 
-    # Prepare Groq API request
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-3.1-8b-instant",  # latest working model
+        "model": "llama-3.1-8b-instant",
         "messages": [{"role": "user", "content": user_message}],
         "temperature": 0.7
     }
@@ -35,17 +37,13 @@ def whatsapp_reply():
         response.raise_for_status()
         data = response.json()
         bot_reply = data["choices"][0]["message"]["content"].strip()
-    except KeyError:
-        bot_reply = "⚠️ Sorry, I could not process that."
-    except requests.exceptions.RequestException as e:
-        bot_reply = f"⚠️ Request error: {e}"
     except Exception as e:
-        bot_reply = f"⚠️ Unexpected error: {e}"
+        bot_reply = f"⚠️ Could not process: {e}"
 
-    # Twilio WhatsApp reply
     resp = MessagingResponse()
     resp.message(bot_reply)
     return str(resp)
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
